@@ -28,6 +28,7 @@ Efficient template matching in quantum circuits.
 """
 
 from qiskit.circuit.controlledgate import ControlledGate
+import networkx as nx
 
 
 class Match:
@@ -62,7 +63,8 @@ class MatchingScenarios:
                  template_matched,
                  template_blocked,
                  matches,
-                 counter):
+                 counter,
+                 tree_counter):
         """
         Create a MatchingScenarios class with necessary arguments.
         Args:
@@ -83,6 +85,8 @@ class MatchingScenarios:
         self.matches = matches
         # Counter
         self.counter = counter
+
+        self.tree_counter = tree_counter
 
 
 class MatchingScenariosList:
@@ -158,6 +162,10 @@ class BackwardMatch:
         self.forward_matches = forward_matches
 
         self.match_final = []
+
+        self.tree = nx.MultiDiGraph()
+
+        self.node_counter = 0
 
     def _gate_indices(self):
         """
@@ -337,16 +345,13 @@ class BackwardMatch:
 
         circuit_matched, circuit_blocked, template_matched, template_blocked = self._init_matched_blocked_list()
 
-        if self.qubits == [6,5,4,3,2] and self.node_id_t==0 and self.node_id_c==7:
-            print(self.forward_matches)
-            print(circuit_matched, circuit_blocked, template_matched, template_blocked)
-
         first_match = MatchingScenarios(circuit_matched,
                                         circuit_blocked,
                                         template_matched,
                                         template_blocked,
                                         self.forward_matches,
-                                        counter)
+                                        counter,
+                                        0)
 
         matching_list = MatchingScenariosList()
         matching_list.append_scenario(first_match)
@@ -372,11 +377,16 @@ class BackwardMatch:
 
             counter_scenario = scenario.counter
 
+            parent = scenario.tree_counter
+
             match_backward = [match for match in matches_scenario
                               if match not in self.forward_matches]
 
             if counter_scenario > len(gate_indices) or \
                     len(match_backward) == number_of_gate_to_match:
+                self.node_counter += 1
+                self.tree.add_node(self.node_counter, type='end')
+                self.tree.add_edge(parent, self.node_counter)
                 matches_scenario.sort(key=lambda x: x[0])
                 match_store_list.append(Match(matches_scenario, self.qubits, self.clbits))
                 continue
@@ -385,12 +395,16 @@ class BackwardMatch:
             node_circuit = self.circuit_dag.get_node(circuit_id)
 
             if circuit_blocked[circuit_id]:
+                self.node_counter += 1
+                self.tree.add_node(self.node_counter, type='blocked circuit')
+                self.tree.add_edge(parent, self.node_counter)
                 matching_scenario = MatchingScenarios(circuit_matched,
                                                       circuit_blocked,
                                                       template_matched,
                                                       template_blocked,
                                                       matches_scenario,
-                                                      counter_scenario + 1)
+                                                      counter_scenario + 1,
+                                                      self.node_counter)
                 matching_list.append_scenario(matching_scenario)
                 continue
 
@@ -419,8 +433,6 @@ class BackwardMatch:
                 if self._is_same_q_conf(node_circuit, node_template, qarg1)\
                         and self._is_same_c_conf(node_circuit, node_template, carg1)\
                         and self._is_same_op(node_circuit, node_template):
-
-                    tree = tree + 1
 
                     circuit_matched_match = circuit_matched.copy()
                     circuit_blocked_match = circuit_blocked.copy()
@@ -460,6 +472,10 @@ class BackwardMatch:
 
                     if ([self.node_id_t, self.node_id_c] in new_matches_scenario_match) \
                             and (condition or not match_backward):
+                        print(circuit_id,template_id)
+                        self.node_counter += 1
+                        self.tree.add_node(self.node_counter, type='match')
+                        self.tree.add_edge(parent, self.node_counter)
 
                         template_matched_match[template_id] = [circuit_id]
                         circuit_matched_match[circuit_id] = [template_id]
@@ -470,75 +486,87 @@ class BackwardMatch:
                                                                   template_matched_match,
                                                                   template_blocked_match,
                                                                   new_matches_scenario_match,
-                                                                  counter_scenario + 1)
+                                                                  counter_scenario + 1,
+                                                                  self.node_counter)
                         matching_list.append_scenario(new_matching_scenario)
 
                         actual_match = True
                         global_match = True
 
-                    if actual_match:
-                        circuit_matched_block_s = circuit_matched.copy()
-                        circuit_blocked_block_s = circuit_blocked.copy()
+            if global_match:
+                circuit_matched_block_s = circuit_matched.copy()
+                circuit_blocked_block_s = circuit_blocked.copy()
 
-                        template_matched_block_s = template_matched.copy()
-                        template_blocked_block_s = template_blocked.copy()
+                template_matched_block_s = template_matched.copy()
+                template_blocked_block_s = template_blocked.copy()
 
-                        matches_scenario_block_s = matches_scenario.copy()
+                matches_scenario_block_s = matches_scenario.copy()
 
-                        circuit_blocked_block_s[circuit_id] = True
+                circuit_blocked_block_s[circuit_id] = True
 
-                        broken_matches = []
+                broken_matches = []
 
-                        for succ in self.circuit_dag.get_node(circuit_id).successors:
-                            circuit_blocked_block_s[succ] = True
-                            if circuit_matched_block_s[succ]:
-                                broken_matches.append(succ)
-                                new_id = circuit_matched_block_s[succ][0]
-                                template_matched_block_s[new_id] = []
-                                circuit_matched_block_s[succ] = []
+                for succ in self.circuit_dag.get_node(circuit_id).successors:
+                    circuit_blocked_block_s[succ] = True
+                    if circuit_matched_block_s[succ]:
+                        broken_matches.append(succ)
+                        new_id = circuit_matched_block_s[succ][0]
+                        template_matched_block_s[new_id] = []
+                        circuit_matched_block_s[succ] = []
 
-                        new_matches_scenario_block_s = [elem for elem in matches_scenario_block_s
-                                                        if elem[1] not in broken_matches]
+                new_matches_scenario_block_s = [elem for elem in matches_scenario_block_s
+                                                if elem[1] not in broken_matches]
 
-                        condition_not_greedy = True
+                condition_not_greedy = True
 
-                        for back_match in match_backward:
-                            if back_match not in new_matches_scenario_block_s:
-                                condition_not_greedy = False
-                                break
+                for back_match in match_backward:
+                    if back_match not in new_matches_scenario_block_s:
+                        condition_not_greedy = False
+                        break
 
-                        if ([self.node_id_t, self.node_id_c] in new_matches_scenario_block_s) and \
-                                (condition_not_greedy or not match_backward):
-                            new_matching_scenario = MatchingScenarios(circuit_matched_block_s,
-                                                                      circuit_blocked_block_s,
-                                                                      template_matched_block_s,
-                                                                      template_blocked_block_s,
-                                                                      new_matches_scenario_block_s,
-                                                                      counter_scenario + 1)
-                            matching_list.append_scenario(new_matching_scenario)
+                if ([self.node_id_t, self.node_id_c] in new_matches_scenario_block_s) and \
+                        (condition_not_greedy or not match_backward):
 
-                        if broken_matches:
+                    self.node_counter += 1
+                    self.tree.add_node(self.node_counter, type='match block succ')
+                    self.tree.add_edge(parent, self.node_counter)
 
-                            circuit_matched_block_p = circuit_matched.copy()
-                            circuit_blocked_block_p = circuit_blocked.copy()
+                    new_matching_scenario = MatchingScenarios(circuit_matched_block_s,
+                                                              circuit_blocked_block_s,
+                                                              template_matched_block_s,
+                                                              template_blocked_block_s,
+                                                              new_matches_scenario_block_s,
+                                                              counter_scenario + 1,
+                                                              self.node_counter)
+                    matching_list.append_scenario(new_matching_scenario)
 
-                            template_matched_block_p = template_matched.copy()
-                            template_blocked_block_p = template_blocked.copy()
+                if broken_matches:
 
-                            matches_scenario_block_p = matches_scenario.copy()
+                    circuit_matched_block_p = circuit_matched.copy()
+                    circuit_blocked_block_p = circuit_blocked.copy()
 
-                            circuit_blocked_block_p[circuit_id] = True
+                    template_matched_block_p = template_matched.copy()
+                    template_blocked_block_p = template_blocked.copy()
 
-                            for pred in self.circuit_dag.get_node(circuit_id).predecessors:
-                                circuit_blocked_block_p[pred] = True
+                    matches_scenario_block_p = matches_scenario.copy()
 
-                            matching_scenario = MatchingScenarios(circuit_matched_block_p,
-                                                                  circuit_blocked_block_p,
-                                                                  template_matched_block_p,
-                                                                  template_blocked_block_p,
-                                                                  matches_scenario_block_p,
-                                                                  counter_scenario + 1)
-                            matching_list.append_scenario(matching_scenario)
+                    circuit_blocked_block_p[circuit_id] = True
+
+                    for pred in self.circuit_dag.get_node(circuit_id).predecessors:
+                        circuit_blocked_block_p[pred] = True
+
+                    self.node_counter += 1
+                    self.tree.add_node(self.node_counter, type='match block pred')
+                    self.tree.add_edge(parent, self.node_counter)
+
+                    matching_scenario = MatchingScenarios(circuit_matched_block_p,
+                                                          circuit_blocked_block_p,
+                                                          template_matched_block_p,
+                                                          template_blocked_block_p,
+                                                          matches_scenario_block_p,
+                                                          counter_scenario + 1,
+                                                          self.node_counter)
+                    matching_list.append_scenario(matching_scenario)
 
             if not global_match:
 
@@ -557,12 +585,17 @@ class BackwardMatch:
 
                 if not predecessors or not following_matches:
 
+                    self.node_counter += 1
+                    self.tree.add_node(self.node_counter, type='not disturbing')
+                    self.tree.add_edge(parent, self.node_counter)
+
                     matching_scenario = MatchingScenarios(circuit_matched,
                                                           circuit_blocked,
                                                           template_matched,
                                                           template_blocked,
                                                           matches_scenario,
-                                                          counter_scenario + 1)
+                                                          counter_scenario + 1,
+                                                          self.node_counter)
                     matching_list.append_scenario(matching_scenario)
 
                 else:
@@ -570,12 +603,17 @@ class BackwardMatch:
                     for pred in predecessors:
                         circuit_blocked[pred] = True
 
+                    self.node_counter += 1
+                    self.tree.add_node(self.node_counter, type='no match block pred')
+                    self.tree.add_edge(parent, self.node_counter)
+
                     matching_scenario = MatchingScenarios(circuit_matched,
                                                           circuit_blocked,
                                                           template_matched,
                                                           template_blocked,
                                                           matches_scenario,
-                                                          counter_scenario + 1)
+                                                          counter_scenario + 1,
+                                                          self.node_counter)
                     matching_list.append_scenario(matching_scenario)
 
                     # Option 2
@@ -609,12 +647,18 @@ class BackwardMatch:
 
                     if ([self.node_id_t, self.node_id_c] in matches_scenario_nomatch) \
                             and (condition_block or not match_backward):
+
+                        self.node_counter += 1
+                        self.tree.add_node(self.node_counter, type='no match block succ')
+                        self.tree.add_edge(parent, self.node_counter)
+
                         new_matching_scenario = MatchingScenarios(circuit_matched_nomatch,
                                                                   circuit_blocked_nomatch,
                                                                   template_matched_nomatch,
                                                                   template_blocked_nomatch,
                                                                   new_matches_scenario_nomatch,
-                                                                  counter_scenario + 1)
+                                                                  counter_scenario + 1,
+                                                                  self.node_counter)
                         matching_list.append_scenario(new_matching_scenario)
 
         length = max(len(m.match) for m in match_store_list)
