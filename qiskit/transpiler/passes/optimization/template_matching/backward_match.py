@@ -343,12 +343,9 @@ class BackwardMatch:
         metrics = []
         if list_counter.count(list_counter[0]) == len(list_counter) and list_counter[0] <= len(gate_indices):
             if (list_counter[0]-1) % length == 0:
-
                 for scenario in self.matching_list.matching_scenarios_list:
                     metrics.append(self._backward_metrics(scenario,'len'))
-
                 largest = heapq.nlargest(survivor, range(len(metrics)), key=lambda x: metrics[x])
-
                 self.matching_list.matching_scenarios_list = [i for j, i in enumerate(self.matching_list.matching_scenarios_list) if j in largest]
 
     def _backward_metrics(self, scenario, metrics):
