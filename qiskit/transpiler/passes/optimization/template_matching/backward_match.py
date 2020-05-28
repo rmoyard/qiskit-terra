@@ -382,7 +382,7 @@ class BackwardMatch:
 
         while self.matching_list.matching_scenarios_list:
 
-            self._backward_heuristics(gate_indices,3,2)
+            self._backward_heuristics(gate_indices,3,1)
 
             scenario = self.matching_list.pop_scenario()
 

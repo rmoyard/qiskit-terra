@@ -232,6 +232,12 @@ class TemplateMatching:
                                                          list_qubit_circuit)
                                 backward.run_backward_match()
 
+                                if len(backward.tree) > 500:
+                                    print(list_qubit_circuit)
+                                    print(forward.match)
+                                    for elem in backward.match_final:
+                                        print(elem.match)
+
                                 self._add_match(backward.match_final)
 
         self.match_list.sort(key=lambda x: len(x.match), reverse=True)
