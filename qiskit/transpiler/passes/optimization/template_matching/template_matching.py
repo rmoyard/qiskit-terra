@@ -32,6 +32,15 @@ from qiskit.converters.circuit_to_dagdependency import circuit_to_dagdependency
 from qiskit.transpiler.passes.optimization.template_matching.forward_match import ForwardMatch
 from qiskit.transpiler.passes.optimization.template_matching.backward_match import BackwardMatch
 
+import numpy as np
+import networkx as nx
+import os
+import sys
+import tempfile
+from PIL import Image
+
+from networkx.drawing.nx_pydot import to_pydot
+
 
 class TemplateMatching:
     """
