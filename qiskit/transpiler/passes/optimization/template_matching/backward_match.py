@@ -28,6 +28,7 @@ Efficient template matching in quantum circuits.
 """
 
 from qiskit.circuit.controlledgate import ControlledGate
+import heapq
 
 
 class Match:
@@ -158,6 +159,8 @@ class BackwardMatch:
         self.forward_matches = forward_matches
 
         self.match_final = []
+
+        self.matching_list = MatchingScenariosList()
 
     def _gate_indices(self):
         """
@@ -325,6 +328,22 @@ class BackwardMatch:
 
         return circuit_matched, circuit_blocked, template_matched, template_blocked
 
+    def _backward_heuristics(self,gate_indices, length, survivor):
+        list_counter = []
+        for scenario in self.matching_list.matching_scenarios_list:
+            list_counter.append(scenario.counter)
+        metrics = []
+        if list_counter.count(list_counter[0]) == len(list_counter) and list_counter[0] <= len(gate_indices):
+            if (list_counter[0]-1) % length == 0:
+                for scenario in self.matching_list.matching_scenarios_list:
+                    metrics.append(self._backward_metrics(scenario,'len'))
+                largest = heapq.nlargest(survivor, range(len(metrics)), key=lambda x: metrics[x])
+                self.matching_list.matching_scenarios_list = [i for j, i in enumerate(self.matching_list.matching_scenarios_list) if j in largest]
+
+    def _backward_metrics(self, scenario, metrics):
+        if metrics == 'len':
+            return len(scenario.matches)
+
     def run_backward_match(self):
         """
         Apply the forward match algorithm and returns the list of matches given an initial match
@@ -344,8 +363,7 @@ class BackwardMatch:
                                         self.forward_matches,
                                         counter)
 
-        matching_list = MatchingScenariosList()
-        matching_list.append_scenario(first_match)
+        self.matching_list.append_scenario(first_match)
 
         gate_indices = self._gate_indices()
 
@@ -354,9 +372,11 @@ class BackwardMatch:
 
         tree = 0
 
-        while matching_list.matching_scenarios_list:
+        while self.matching_list.matching_scenarios_list:
 
-            scenario = matching_list.pop_scenario()
+            self._backward_heuristics(gate_indices,3,1)
+
+            scenario = self.matching_list.pop_scenario()
 
             circuit_matched = scenario.circuit_matched
             circuit_blocked = scenario.circuit_blocked
@@ -387,7 +407,7 @@ class BackwardMatch:
                                                       template_blocked,
                                                       matches_scenario,
                                                       counter_scenario + 1)
-                matching_list.append_scenario(matching_scenario)
+                self.matching_list.append_scenario(matching_scenario)
                 continue
 
             candidates_indices = self._find_backward_candidates(template_blocked,
@@ -402,7 +422,6 @@ class BackwardMatch:
             global_match = False
 
             for template_id in candidates_indices:
-                actual_match = False
 
                 node_template = self.template_dag.get_node(template_id)
                 qarg2 = self.template_dag.get_node(template_id).qindices
@@ -467,9 +486,8 @@ class BackwardMatch:
                                                                   template_blocked_match,
                                                                   new_matches_scenario_match,
                                                                   counter_scenario + 1)
-                        matching_list.append_scenario(new_matching_scenario)
+                        self.matching_list.append_scenario(new_matching_scenario)
 
-                        actual_match = True
                         global_match = True
 
             if global_match:
@@ -511,7 +529,7 @@ class BackwardMatch:
                                                               template_blocked_block_s,
                                                               new_matches_scenario_block_s,
                                                               counter_scenario + 1)
-                    matching_list.append_scenario(new_matching_scenario)
+                    self.matching_list.append_scenario(new_matching_scenario)
 
                 if broken_matches:
 
@@ -534,7 +552,7 @@ class BackwardMatch:
                                                           template_blocked_block_p,
                                                           matches_scenario_block_p,
                                                           counter_scenario + 1)
-                    matching_list.append_scenario(matching_scenario)
+                    self.matching_list.append_scenario(matching_scenario)
 
             if not global_match:
 
@@ -559,7 +577,7 @@ class BackwardMatch:
                                                           template_blocked,
                                                           matches_scenario,
                                                           counter_scenario + 1)
-                    matching_list.append_scenario(matching_scenario)
+                    self.matching_list.append_scenario(matching_scenario)
 
                 else:
                     # Option 1
@@ -572,7 +590,7 @@ class BackwardMatch:
                                                           template_blocked,
                                                           matches_scenario,
                                                           counter_scenario + 1)
-                    matching_list.append_scenario(matching_scenario)
+                    self.matching_list.append_scenario(matching_scenario)
 
                     # Option 2
                     circuit_matched_nomatch = circuit_matched.copy()
@@ -611,7 +629,7 @@ class BackwardMatch:
                                                                   template_blocked_nomatch,
                                                                   new_matches_scenario_nomatch,
                                                                   counter_scenario + 1)
-                        matching_list.append_scenario(new_matching_scenario)
+                        self.matching_list.append_scenario(new_matching_scenario)
 
         length = max(len(m.match) for m in match_store_list)
 
