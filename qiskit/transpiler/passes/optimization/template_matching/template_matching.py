@@ -148,6 +148,18 @@ class TemplateMatching:
             if not already_in:
                 self.match_list.append(b_match)
 
+    def explore_circuit(self, node_id_c, n_qubits_t, length):
+        successors = self.circuit_dag.get_node(node_id_c).successors
+
+        counter = 1
+        qubit_set = set(self.circuit_dag.get_node(node_id_c).qindices)
+        for succ in successors:
+            qarg = self.circuit_dag.get_node(succ).qindices
+            if (len(qubit_set | set(qarg))) < n_qubits_t and counter <= length:
+                qubit_set = qubit_set | set(qarg)
+            counter += 1
+        return list(qubit_set)
+
     def run_template_matching(self):
         """
         Change qubits indices of the current circuit node in order to
@@ -177,6 +189,8 @@ class TemplateMatching:
                     node_id_c = circuit_index
                     node_id_t = template_index
 
+                    heuristics = self.explore_circuit(node_id_c, n_qubits_t, 3)
+
                     list_first_match_q, list_first_match_c = self._list_first_match(qarg_c, qarg_t,
                                                                                     carg_c, carg_t,
                                                                                     n_qubits_t,
@@ -186,58 +200,59 @@ class TemplateMatching:
                     list_circuit_c = list(range(0, n_clbits_c))
 
                     for sub_q in self._sublist(list_circuit_q, qarg_c, n_qubits_t - len(qarg_t)):
-                        for perm_q in itertools.permutations(sub_q):
-                            perm_q = list(perm_q)
+                        if set(heuristics).issubset(set(sub_q) | set(qarg_c)):
+                            for perm_q in itertools.permutations(sub_q):
+                                perm_q = list(perm_q)
 
-                            list_qubit_circuit = self._list_qubit_clbit_circuit(list_first_match_q,
-                                                                                perm_q)
+                                list_qubit_circuit = self._list_qubit_clbit_circuit(list_first_match_q,
+                                                                                    perm_q)
 
-                            if list_circuit_c:
-                                for sub_c in self._sublist(list_circuit_c, carg_c,
-                                                           n_clbits_t - len(carg_t)):
-                                    for perm_c in itertools.permutations(sub_c):
-                                        perm_c = list(perm_c)
+                                if list_circuit_c:
+                                    for sub_c in self._sublist(list_circuit_c, carg_c,
+                                                               n_clbits_t - len(carg_t)):
+                                        for perm_c in itertools.permutations(sub_c):
+                                            perm_c = list(perm_c)
 
-                                        list_clbit_circuit =\
-                                            self._list_qubit_clbit_circuit(list_first_match_c,
-                                                                           perm_c)
+                                            list_clbit_circuit =\
+                                                self._list_qubit_clbit_circuit(list_first_match_c,
+                                                                               perm_c)
 
-                                        forward = ForwardMatch(self.circuit_dag, self.template_dag,
-                                                               node_id_c, node_id_t,
-                                                               list_qubit_circuit,
-                                                               list_clbit_circuit)
-                                        forward.run_forward_match()
+                                            forward = ForwardMatch(self.circuit_dag, self.template_dag,
+                                                                   node_id_c, node_id_t,
+                                                                   list_qubit_circuit,
+                                                                   list_clbit_circuit)
+                                            forward.run_forward_match()
 
-                                        backward = BackwardMatch(forward.circuit_dag,
-                                                                 forward.template_dag,
-                                                                 forward.match, node_id_c,
-                                                                 node_id_t,
-                                                                 list_qubit_circuit,
-                                                                 list_clbit_circuit)
+                                            backward = BackwardMatch(forward.circuit_dag,
+                                                                     forward.template_dag,
+                                                                     forward.match, node_id_c,
+                                                                     node_id_t,
+                                                                     list_qubit_circuit,
+                                                                     list_clbit_circuit)
 
-                                        backward.run_backward_match()
+                                            backward.run_backward_match()
 
-                                        self._add_match(backward.match_final)
-                            else:
-                                forward = ForwardMatch(self.circuit_dag, self.template_dag,
-                                                       node_id_c, node_id_t,
-                                                       list_qubit_circuit)
-                                forward.run_forward_match()
+                                            self._add_match(backward.match_final)
+                                else:
+                                    forward = ForwardMatch(self.circuit_dag, self.template_dag,
+                                                           node_id_c, node_id_t,
+                                                           list_qubit_circuit)
+                                    forward.run_forward_match()
 
-                                backward = BackwardMatch(forward.circuit_dag,
-                                                         forward.template_dag,
-                                                         forward.match,
-                                                         node_id_c,
-                                                         node_id_t,
-                                                         list_qubit_circuit)
-                                backward.run_backward_match()
+                                    backward = BackwardMatch(forward.circuit_dag,
+                                                             forward.template_dag,
+                                                             forward.match,
+                                                             node_id_c,
+                                                             node_id_t,
+                                                             list_qubit_circuit)
+                                    backward.run_backward_match()
 
-                                if len(backward.tree) > 500:
-                                    print(list_qubit_circuit)
-                                    print(forward.match)
-                                    for elem in backward.match_final:
-                                        print(elem.match)
+                                    '''if len(backward.tree) > 500:
+                                        print(list_qubit_circuit)
+                                        print(forward.match)
+                                        for elem in backward.match_final:
+                                            print(elem.match)'''
 
-                                self._add_match(backward.match_final)
+                                    self._add_match(backward.match_final)
 
         self.match_list.sort(key=lambda x: len(x.match), reverse=True)
