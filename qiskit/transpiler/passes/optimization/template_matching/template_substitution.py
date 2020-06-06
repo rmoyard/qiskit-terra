@@ -31,7 +31,6 @@ class SubstitutionConfig:
 
     def __init__(self, circuit_config, template_config, pred_block,
                  qubit_config, clbit_config=None):
-
         self.circuit_config = circuit_config
         self.template_config = template_config
         self.qubit_config = qubit_config
@@ -63,21 +62,22 @@ class TemplateSubstitution:
         self.dag_dep_optimized = DAGDependency()
         self.dag_optimized = DAGCircuit()
 
-    def _pred_block(self, circuit_sublist):
+    def _pred_block(self, circuit_sublist, index):
         """
         It returns the predecessors of a given part of the circuit.
         Args:
             circuit_sublist (list): list of the gates matched in the circuit.
+            index (int): Index of the group of matches.
         Returns:
             list: List of predecessors of the current match circuit configuration.
         """
         predecessors = set()
-        for index in circuit_sublist:
-            predecessors = predecessors | set(self.circuit_dag_dep.get_node(index).predecessors)
+        for node_id in circuit_sublist:
+            predecessors = predecessors | set(self.circuit_dag_dep.get_node(node_id).predecessors)
 
         exclude = set()
-        for elem in self.substitution_list:
-            exclude = exclude | elem.circuit_config | elem.pred_block
+        for elem in self.substitution_list[:index]:
+            exclude = exclude | set(elem.circuit_config) | set(elem.pred_block)
 
         pred = list(predecessors - set(circuit_sublist) - exclude)
         pred.sort()
@@ -145,13 +145,81 @@ class TemplateSubstitution:
         total = left + right
         return total
 
+    def _substitution_sort(self):
+        """
+        Sort the substitution list.
+        """
+        ordered = False
+        while not ordered:
+            ordered = self._permutation()
+
+    def _permutation(self):
+        """
+        Permute two groups of matches if first one has predecessors in the second one.
+        Returns:
+            bool: True if the matches groups are in the right order, False otherwise.
+        """
+        for scenario in self.substitution_list:
+            predecessors = set()
+            for match in scenario.circuit_config:
+                predecessors = predecessors | set(self.circuit_dag_dep.get_node(match).predecessors)
+            predecessors = predecessors - set(scenario.circuit_config)
+            index = self.substitution_list.index(scenario)
+            for scenario_b in self.substitution_list[index::]:
+                if set(scenario_b.circuit_config) & predecessors:
+
+                    index1 = self.substitution_list.index(scenario)
+                    index2 = self.substitution_list.index(scenario_b)
+
+                    scenario_pop = self.substitution_list.pop(index2)
+                    self.substitution_list.insert(index1, scenario_pop)
+                    return False
+        return True
+
+    def _remove_impossible(self):
+        """
+        Remove matches groups if the have both predecessors in the other one, they are not
+        compatible.
+        """
+        list_predecessors = []
+        remove_list = []
+
+        # Initialize predecessors for each group of matches.
+        for scenario in self.substitution_list:
+            predecessors = set()
+            for index in scenario.circuit_config:
+                predecessors = predecessors | set(self.circuit_dag_dep.get_node(index).predecessors)
+            list_predecessors.append(predecessors)
+
+        # Check if two groups of matches are incompatible.
+        for scenario_a in self.substitution_list:
+            if scenario_a in remove_list:
+                continue
+            index_a = self.substitution_list.index(scenario_a)
+            circuit_a = scenario_a.circuit_config
+            for scenario_b in self.substitution_list[index_a+1::]:
+                if scenario_b in remove_list:
+                    continue
+                index_b = self.substitution_list.index(scenario_b)
+                circuit_b = scenario_b.circuit_config
+                if (set(circuit_a) & list_predecessors[index_b])\
+                        and (set(circuit_b) & list_predecessors[index_a]):
+                    remove_list.append(scenario_b)
+
+        # Remove the incompatible groups from the list.
+        if remove_list:
+            self.substitution_list = [scenario for scenario in self.substitution_list
+                                      if scenario not in remove_list]
+
     def _substitution(self):
         """
         From the list of maximal matches, it chooses which one will be used and gives the necessary
         details for each substitution(template inverse, predecessors of the match).
         """
+
         while self.match_stack:
 
+            # Get the first match scenario of the list
             current = self.match_stack.pop(0)
 
             current_match = current.match
@@ -159,30 +227,40 @@ class TemplateSubstitution:
             current_clbit = current.clbit
 
             template_sublist = [x[0] for x in current_match]
-
             circuit_sublist = [x[1] for x in current_match]
             circuit_sublist.sort()
 
+            # If the match obey the rule then it is added to the list.
             if self._rules(circuit_sublist):
                 template_sublist_inverse = self._template_inverse(template_sublist)
 
-                pred = self._pred_block(circuit_sublist)
-
                 config = SubstitutionConfig(circuit_sublist,
                                             template_sublist_inverse,
-                                            pred,
+                                            [],
                                             current_qubit,
                                             current_clbit)
                 self.substitution_list.append(config)
+
+        # Remove incompatible matches.
+        self._remove_impossible()
+
+        # First sort the matches accordding to the smallest index in the matches (circuit).
+        self.substitution_list.sort(key=lambda x: x.circuit_config[0])
+
+        # Change position of the groups due to predecessors of other groups.
+        self._substitution_sort()
+
+        for scenario in self.substitution_list:
+            index = self.substitution_list.index(scenario)
+            scenario.pred_block = self._pred_block(scenario.circuit_config, index)
 
         circuit_list = []
         for elem in self.substitution_list:
             circuit_list = circuit_list + elem.circuit_config + elem.pred_block
 
-        self.unmatched_list = list(set(range(0, self.circuit_dag_dep.size()))
-                                   - set(circuit_list))
-
-        self.substitution_list.sort(key=lambda x: x.circuit_config[0])
+        # Unmatched gates that are not predecessors of any group of matches.
+        self.unmatched_list = sorted(list(set(range(0, self.circuit_dag_dep.size()))
+                                          - set(circuit_list)))
 
     def run_dag_opt(self):
         """
@@ -198,31 +276,23 @@ class TemplateSubstitution:
 
         already_sub = []
 
-        for node in self.circuit_dag_dep.get_nodes():
-            if node.node_id in already_sub:
-                pass
-            elif node.node_id in self.unmatched_list:
+        if self.substitution_list:
+            # Loop over the different matches.
+            for group in self.substitution_list:
 
-                inst = node.op.copy()
-                inst.condition = node.condition
-                dag_dep_opt.add_op_node(inst, node.qargs, node.cargs)
+                circuit_sub = group.circuit_config
+                template_inverse = group.template_config
 
-                already_sub.append(node.node_id)
+                pred = group.pred_block
 
-            else:
-                bloc = self.substitution_list.pop(0)
+                qubit = group.qubit_config[0]
 
-                circuit_sub = bloc.circuit_config
-                template_inverse = bloc.template_config
-                pred = bloc.pred_block
-
-                qubit = bloc.qubit_config[0]
-
-                if bloc.clbit_config:
-                    clbit = bloc.clbit_config[0]
+                if group.clbit_config:
+                    clbit = group.clbit_config[0]
                 else:
                     clbit = []
 
+                # First add all the predecessors of the given match.
                 for elem in pred:
                     node = self.circuit_dag_dep.get_node(elem)
                     inst = node.op.copy()
@@ -232,6 +302,7 @@ class TemplateSubstitution:
 
                 already_sub = already_sub + circuit_sub
 
+                # Then add the inverse of the template.
                 for index in template_inverse:
                     all_qubits = self.circuit_dag_dep.qubits()
                     qarg_t = self.template_dag_dep.get_node(index).qindices
@@ -246,11 +317,23 @@ class TemplateSubstitution:
                         cargs = [all_clbits[x] for x in carg_c]
                     else:
                         cargs = []
-
+                    node = self.template_dag_dep.get_node(index)
                     inst = node.op.copy()
                     inst.condition = node.condition
 
                     dag_dep_opt.add_op_node(inst.inverse(), qargs, cargs)
+
+            # Add the unmatched gates.
+            for node_id in self.unmatched_list:
+                node = self.circuit_dag_dep.get_node(node_id)
+                inst = node.op.copy()
+                inst.condition = node.condition
+                dag_dep_opt.add_op_node(inst, node.qargs, node.cargs)
+
+            dag_dep_opt._add_successors()
+        # If there is no valid match, it returns the original dag.
+        else:
+            dag_dep_opt = self.circuit_dag_dep
 
         self.dag_dep_optimized = dag_dep_opt
         self.dag_optimized = dagdependency_to_dag(dag_dep_opt)
