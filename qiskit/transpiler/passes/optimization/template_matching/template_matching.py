@@ -26,6 +26,7 @@ Efficient template matching in quantum circuits.
 """
 
 import itertools
+import time
 
 from qiskit.transpiler.passes.optimization.template_matching.forward_match import ForwardMatch
 from qiskit.transpiler.passes.optimization.template_matching.backward_match import BackwardMatch
@@ -53,6 +54,8 @@ class TemplateMatching:
             if heuristics_qubits_param is not None else []
         self.heuristics_backward_param = heuristics_backward_param\
             if heuristics_backward_param is not None else []
+        self.time_f = 0
+        self.time_b = 0
 
     def _list_first_match(self, qarg_c, qarg_t, carg_c, carg_t, n_qubits_t, n_clbits_t):
         """
@@ -169,7 +172,6 @@ class TemplateMatching:
         Change qubits indices of the current circuit node in order to
         be comparable the indices of the template qubits list.
         """
-
         # Get the number of qubits/clbits for both circuit and template.
         n_qubits_c = len(self.circuit_dag_dep.qubits())
         n_clbits_c = len(self.circuit_dag_dep.clbits())
@@ -253,14 +255,17 @@ class TemplateMatching:
                                             # Add the matches to the list.
                                             self._add_match(backward.match_final)
                                 else:
+                                    time_f_ini = time.process_time()
                                     # Apply the forward match part of the algorithm.
                                     forward = ForwardMatch(self.circuit_dag_dep,
                                                            self.template_dag_dep,
                                                            node_id_c, node_id_t,
                                                            list_qubit_circuit)
                                     forward.run_forward_match()
-
+                                    time_f_fin = time.process_time()
+                                    self.time_f +=(time_f_fin-time_f_ini)
                                     # Apply the backward match part of the algorithm.
+                                    time_b_ini = time.process_time()
                                     backward = BackwardMatch(forward.circuit_dag_dep,
                                                              forward.template_dag_dep,
                                                              forward.match,
@@ -270,7 +275,8 @@ class TemplateMatching:
                                                              [],
                                                              self.heuristics_backward_param)
                                     backward.run_backward_match()
-
+                                    time_b_fin = time.process_time()
+                                    self.time_b += (time_b_fin-time_b_ini)
                                     # Add the matches to the list.
                                     self._add_match(backward.match_final)
 
