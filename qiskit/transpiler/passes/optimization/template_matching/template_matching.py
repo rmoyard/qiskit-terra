@@ -165,6 +165,8 @@ class TemplateMatching:
         Change qubits indices of the current circuit node in order to
         be comparable the indices of the template qubits list.
         """
+        total = 0
+
 
         n_qubits_c = self.circuit.num_qubits
         n_clbits_c = self.circuit.num_clbits
@@ -189,7 +191,7 @@ class TemplateMatching:
                     node_id_c = circuit_index
                     node_id_t = template_index
 
-                    heuristics = self.explore_circuit(node_id_c, n_qubits_t, 3)
+                    #heuristics = self.explore_circuit(node_id_c, n_qubits_t, 3)
 
                     list_first_match_q, list_first_match_c = self._list_first_match(qarg_c, qarg_t,
                                                                                     carg_c, carg_t,
@@ -200,7 +202,7 @@ class TemplateMatching:
                     list_circuit_c = list(range(0, n_clbits_c))
 
                     for sub_q in self._sublist(list_circuit_q, qarg_c, n_qubits_t - len(qarg_t)):
-                        if set(heuristics).issubset(set(sub_q) | set(qarg_c)):
+                        #if set(heuristics).issubset(set(sub_q) | set(qarg_c)):
                             for perm_q in itertools.permutations(sub_q):
                                 perm_q = list(perm_q)
 
@@ -247,12 +249,8 @@ class TemplateMatching:
                                                              list_qubit_circuit)
                                     backward.run_backward_match()
 
-                                    '''if len(backward.tree) > 500:
-                                        print(list_qubit_circuit)
-                                        print(forward.match)
-                                        for elem in backward.match_final:
-                                            print(elem.match)'''
-
+                                    print(len(backward.tree))
+                                    total += len(backward.tree)
                                     self._add_match(backward.match_final)
-
+        print(total)
         self.match_list.sort(key=lambda x: len(x.match), reverse=True)
