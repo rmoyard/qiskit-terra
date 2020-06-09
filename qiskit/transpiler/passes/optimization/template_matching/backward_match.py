@@ -341,7 +341,6 @@ class BackwardMatch:
 
         for scenario in self.matching_list.matching_scenarios_list:
             list_counter.append(scenario.counter)
-
         metrics = []
         # If all scenarios have the same counter and the counter is divisible by length.
         if list_counter.count(list_counter[0]) == len(list_counter) \

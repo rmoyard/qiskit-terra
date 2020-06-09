@@ -277,6 +277,7 @@ class TemplateMatching:
                                                              [],
                                                              self.heuristics_backward_param)
                                     backward.run_backward_match()
+                                    #print(node_id_c,node_id_t, list_qubit_circuit)
                                     time_b_fin = time.process_time()
                                     self.time_b += (time_b_fin-time_b_ini)
                                     self.time_h += backward.time_h
