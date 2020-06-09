@@ -27,6 +27,7 @@ Efficient template matching in quantum circuits.
 
 """
 import heapq
+import time
 
 from qiskit.circuit.controlledgate import ControlledGate
 
@@ -146,6 +147,8 @@ class BackwardMatch:
         self.heuristics_backward_param = heuristics_backward_param \
             if heuristics_backward_param is not None else []
         self.matching_list = MatchingScenariosList()
+        self.time_h = 0
+        self.time_r = 0
 
     def _gate_indices(self):
         """
@@ -332,6 +335,7 @@ class BackwardMatch:
             length (int): depth for cutting the tree, cutting operation is repeated every length.
             survivor (int): number of survivor branches.
         """
+        time_r_ini = time.process_time()
         # Set the list of the counter for the different scenarios.
         list_counter = []
 
@@ -342,15 +346,19 @@ class BackwardMatch:
         # If all scenarios have the same counter and the counter is divisible by length.
         if list_counter.count(list_counter[0]) == len(list_counter) \
                 and list_counter[0] <= len(gate_indices):
+
             if (list_counter[0] - 1) % length == 0:
                 # The list metrics contains metric results for each scenarios.
                 for scenario in self.matching_list.matching_scenarios_list:
                     metrics.append(self._backward_metrics(scenario))
                 # Select only the scenarios with higher metrics for the given number of survivors.
+
                 largest = heapq.nlargest(survivor, range(len(metrics)), key=lambda x: metrics[x])
                 self.matching_list.matching_scenarios_list \
                     = [i for j, i in enumerate(self.matching_list.matching_scenarios_list)
                        if j in largest]
+        time_r_fin = time.process_time()
+        self.time_r += time_r_fin - time_r_ini
 
     def _backward_metrics(self, scenario):
         """
@@ -398,10 +406,13 @@ class BackwardMatch:
         while self.matching_list.matching_scenarios_list:
 
             # If parameters are given, the heuristics is applied.
+            time_h_ini = time.process_time()
             if self.heuristics_backward_param:
                 self._backward_heuristics(gate_indices,
                                           self.heuristics_backward_param[0],
                                           self.heuristics_backward_param[1])
+            time_h_fin = time.process_time()
+            self.time_h += time_h_fin - time_h_ini
 
             scenario = self.matching_list.pop_scenario()
 

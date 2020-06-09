@@ -56,6 +56,8 @@ class TemplateMatching:
             if heuristics_backward_param is not None else []
         self.time_f = 0
         self.time_b = 0
+        self.time_h = 0
+        self.time_r = 0
 
     def _list_first_match(self, qarg_c, qarg_t, carg_c, carg_t, n_qubits_t, n_clbits_t):
         """
@@ -277,6 +279,8 @@ class TemplateMatching:
                                     backward.run_backward_match()
                                     time_b_fin = time.process_time()
                                     self.time_b += (time_b_fin-time_b_ini)
+                                    self.time_h += backward.time_h
+                                    self.time_r += backward.time_r
                                     # Add the matches to the list.
                                     self._add_match(backward.match_final)
 
