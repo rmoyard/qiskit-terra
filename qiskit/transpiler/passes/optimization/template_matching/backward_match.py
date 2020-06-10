@@ -401,12 +401,23 @@ class BackwardMatch:
             self.template_dag_dep.size() - \
             (self.node_id_t - 1) - len(self.forward_matches)
 
+        if self.heuristics_backward_param:
+            heuristics = True
+        else:
+            heuristics = False
+
+        template_nodes = range(self.node_id_t + 1
+                               , self.template_dag_dep.size())
+        not_succ = list(set(template_nodes) - set(self.template_dag_dep.get_node(self.node_id_t).successors))
+        length = len(not_succ)
+
         # While the scenario stack is not empty.
         while self.matching_list.matching_scenarios_list:
 
             # If parameters are given, the heuristics is applied.
             time_h_ini = time.process_time()
-            if self.heuristics_backward_param:
+
+            if heuristics and length > 3:
                 self._backward_heuristics(gate_indices,
                                           self.heuristics_backward_param[0],
                                           self.heuristics_backward_param[1])
