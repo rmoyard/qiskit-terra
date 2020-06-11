@@ -417,7 +417,7 @@ class BackwardMatch:
             # If parameters are given, the heuristics is applied.
             time_h_ini = time.process_time()
 
-            if heuristics and length > 3:
+            if heuristics and length >= self.template_dag_dep.size()/4:
                 self._backward_heuristics(gate_indices,
                                           self.heuristics_backward_param[0],
                                           self.heuristics_backward_param[1])
