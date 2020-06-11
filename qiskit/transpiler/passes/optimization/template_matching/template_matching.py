@@ -164,9 +164,11 @@ class TemplateMatching:
         qubit_set = set(self.circuit_dag_dep.get_node(node_id_c).qindices)
         for succ in successors:
             qarg = self.circuit_dag_dep.get_node(succ).qindices
-            if (len(qubit_set | set(qarg))) < n_qubits_t and counter <= length:
+            if (len(qubit_set | set(qarg))) <= n_qubits_t and counter <= length:
                 qubit_set = qubit_set | set(qarg)
-            counter += 1
+                counter += 1
+            elif (len(qubit_set | set(qarg))) > n_qubits_t:
+                return list(qubit_set)
         return list(qubit_set)
 
     def run_template_matching(self):
@@ -225,65 +227,33 @@ class TemplateMatching:
                                 list_qubit_circuit =\
                                     self._list_qubit_clbit_circuit(list_first_match_q, perm_q)
 
-                                # Check for clbits configurations if there are clbits.
-                                if list_circuit_c:
-                                    for sub_c in self._sublist(list_circuit_c, carg_c,
-                                                               n_clbits_t - len(carg_t)):
-                                        for perm_c in itertools.permutations(sub_c):
-                                            perm_c = list(perm_c)
-
-                                            list_clbit_circuit =\
-                                                self._list_qubit_clbit_circuit(list_first_match_c,
-                                                                               perm_c)
-
-                                            # Apply the forward match part of the algorithm.
-                                            forward = ForwardMatch(self.circuit_dag_dep,
-                                                                   self.template_dag_dep,
-                                                                   node_id_c, node_id_t,
-                                                                   list_qubit_circuit,
-                                                                   list_clbit_circuit)
-                                            forward.run_forward_match()
-
-                                            # Apply the backward match part of the algorithm.
-                                            backward = BackwardMatch(forward.circuit_dag_dep,
-                                                                     forward.template_dag_dep,
-                                                                     forward.match, node_id_c,
-                                                                     node_id_t,
-                                                                     list_qubit_circuit,
-                                                                     list_clbit_circuit,
-                                                                     self.heuristics_backward_param)
-                                            backward.run_backward_match()
-
-                                            # Add the matches to the list.
-                                            self._add_match(backward.match_final)
-                                else:
-                                    time_f_ini = time.process_time()
-                                    # Apply the forward match part of the algorithm.
-                                    forward = ForwardMatch(self.circuit_dag_dep,
-                                                           self.template_dag_dep,
-                                                           node_id_c, node_id_t,
-                                                           list_qubit_circuit)
-                                    forward.run_forward_match()
-                                    time_f_fin = time.process_time()
-                                    self.time_f +=(time_f_fin-time_f_ini)
-                                    # Apply the backward match part of the algorithm.
-                                    time_b_ini = time.process_time()
-                                    backward = BackwardMatch(forward.circuit_dag_dep,
-                                                             forward.template_dag_dep,
-                                                             forward.match,
-                                                             node_id_c,
-                                                             node_id_t,
-                                                             list_qubit_circuit,
-                                                             [],
-                                                             self.heuristics_backward_param)
-                                    backward.run_backward_match()
-                                    #print(node_id_c,node_id_t, list_qubit_circuit)
-                                    time_b_fin = time.process_time()
-                                    self.time_b += (time_b_fin-time_b_ini)
-                                    self.time_h += backward.time_h
-                                    self.time_r += backward.time_r
-                                    # Add the matches to the list.
-                                    self._add_match(backward.match_final)
+                                time_f_ini = time.process_time()
+                                # Apply the forward match part of the algorithm.
+                                forward = ForwardMatch(self.circuit_dag_dep,
+                                                       self.template_dag_dep,
+                                                       node_id_c, node_id_t,
+                                                       list_qubit_circuit)
+                                forward.run_forward_match()
+                                time_f_fin = time.process_time()
+                                self.time_f +=(time_f_fin-time_f_ini)
+                                # Apply the backward match part of the algorithm.
+                                time_b_ini = time.process_time()
+                                backward = BackwardMatch(forward.circuit_dag_dep,
+                                                         forward.template_dag_dep,
+                                                         forward.match,
+                                                         node_id_c,
+                                                         node_id_t,
+                                                         list_qubit_circuit,
+                                                         [],
+                                                         self.heuristics_backward_param)
+                                backward.run_backward_match()
+                                #print(node_id_c,node_id_t, list_qubit_circuit)
+                                time_b_fin = time.process_time()
+                                self.time_b += (time_b_fin-time_b_ini)
+                                self.time_h += backward.time_h
+                                self.time_r += backward.time_r
+                                # Add the matches to the list.
+                                self._add_match(backward.match_final)
 
         # Sort the list of matches according to the length of the matches (decreasing order).
         self.match_list.sort(key=lambda x: len(x.match), reverse=True)
