@@ -164,9 +164,11 @@ class TemplateMatching:
         qubit_set = set(self.circuit_dag_dep.get_node(node_id_c).qindices)
         for succ in successors:
             qarg = self.circuit_dag_dep.get_node(succ).qindices
-            if (len(qubit_set | set(qarg))) < n_qubits_t and counter <= length:
+            if (len(qubit_set | set(qarg))) <= n_qubits_t and counter <= length:
                 qubit_set = qubit_set | set(qarg)
-            counter += 1
+                counter += 1
+            elif (len(qubit_set | set(qarg))) > n_qubits_t:
+                return list(qubit_set)
         return list(qubit_set)
 
     def run_template_matching(self):
