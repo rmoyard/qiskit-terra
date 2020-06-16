@@ -382,7 +382,7 @@ class BackwardMatch:
 
         while self.matching_list.matching_scenarios_list:
 
-            self._backward_heuristics(gate_indices,4,3)
+            self._backward_heuristics(gate_indices,4,1)
 
             scenario = self.matching_list.pop_scenario()
 
@@ -404,8 +404,9 @@ class BackwardMatch:
             if counter_scenario > len(gate_indices) or \
                     len(match_backward) == number_of_gate_to_match:
                 self.node_counter += 1
-                self.tree.add_node(self.node_counter, type='end')
-                self.tree.add_edge(parent, self.node_counter)
+                self.tree.add_node(self.node_counter, type='End')
+                if self.node_counter !=1:
+                    self.tree.add_edge(parent, self.node_counter)
                 matches_scenario.sort(key=lambda x: x[0])
                 match_store_list.append(Match(matches_scenario, self.qubits, self.clbits))
                 continue
@@ -415,8 +416,9 @@ class BackwardMatch:
 
             if circuit_blocked[circuit_id]:
                 self.node_counter += 1
-                self.tree.add_node(self.node_counter, type='blocked circuit')
-                self.tree.add_edge(parent, self.node_counter)
+                self.tree.add_node(self.node_counter, type='Blocked circuit')
+                if self.node_counter != 1:
+                    self.tree.add_edge(parent, self.node_counter)
                 matching_scenario = MatchingScenarios(circuit_matched,
                                                       circuit_blocked,
                                                       template_matched,
@@ -493,8 +495,9 @@ class BackwardMatch:
                             and (condition or not match_backward):
 
                         self.node_counter += 1
-                        self.tree.add_node(self.node_counter, type='match')
-                        self.tree.add_edge(parent, self.node_counter)
+                        self.tree.add_node(self.node_counter, type='Match')
+                        if self.node_counter != 1:
+                            self.tree.add_edge(parent, self.node_counter)
 
                         template_matched_match[template_id] = [circuit_id]
                         circuit_matched_match[circuit_id] = [template_id]
@@ -547,8 +550,9 @@ class BackwardMatch:
                         (condition_not_greedy or not match_backward):
 
                     self.node_counter += 1
-                    self.tree.add_node(self.node_counter, type='match block succ')
-                    self.tree.add_edge(parent, self.node_counter)
+                    self.tree.add_node(self.node_counter, type='Block succ')
+                    if self.node_counter != 1:
+                        self.tree.add_edge(parent, self.node_counter)
 
                     new_matching_scenario = MatchingScenarios(circuit_matched_block_s,
                                                               circuit_blocked_block_s,
@@ -559,7 +563,7 @@ class BackwardMatch:
                                                               self.node_counter)
                     self.matching_list.append_scenario(new_matching_scenario)
 
-                if broken_matches:
+                if broken_matches and broken_matches_match:
 
                     circuit_matched_block_p = circuit_matched.copy()
                     circuit_blocked_block_p = circuit_blocked.copy()
@@ -575,8 +579,9 @@ class BackwardMatch:
                         circuit_blocked_block_p[pred] = True
 
                     self.node_counter += 1
-                    self.tree.add_node(self.node_counter, type='match block pred')
-                    self.tree.add_edge(parent, self.node_counter)
+                    self.tree.add_node(self.node_counter, type='Block pred')
+                    if self.node_counter != 1:
+                        self.tree.add_edge(parent, self.node_counter)
 
                     matching_scenario = MatchingScenarios(circuit_matched_block_p,
                                                           circuit_blocked_block_p,
@@ -605,8 +610,9 @@ class BackwardMatch:
                 if not predecessors or not following_matches:
 
                     self.node_counter += 1
-                    self.tree.add_node(self.node_counter, type='not disturbing')
-                    self.tree.add_edge(parent, self.node_counter)
+                    self.tree.add_node(self.node_counter, type='Not disturbing no match')
+                    if self.node_counter != 1:
+                        self.tree.add_edge(parent, self.node_counter)
 
                     matching_scenario = MatchingScenarios(circuit_matched,
                                                           circuit_blocked,
@@ -623,8 +629,9 @@ class BackwardMatch:
                         circuit_blocked[pred] = True
 
                     self.node_counter += 1
-                    self.tree.add_node(self.node_counter, type='no match block pred')
-                    self.tree.add_edge(parent, self.node_counter)
+                    self.tree.add_node(self.node_counter, type='Block pred no match')
+                    if self.node_counter != 1:
+                        self.tree.add_edge(parent, self.node_counter)
 
                     matching_scenario = MatchingScenarios(circuit_matched,
                                                           circuit_blocked,
@@ -668,8 +675,9 @@ class BackwardMatch:
                             and (condition_block or not match_backward):
 
                         self.node_counter += 1
-                        self.tree.add_node(self.node_counter, type='no match block succ')
-                        self.tree.add_edge(parent, self.node_counter)
+                        self.tree.add_node(self.node_counter, type='Block succ no match')
+                        if self.node_counter != 1:
+                            self.tree.add_edge(parent, self.node_counter)
 
                         new_matching_scenario = MatchingScenarios(circuit_matched_nomatch,
                                                                   circuit_blocked_nomatch,
