@@ -263,8 +263,9 @@ class TemplateMatching:
                                     backward_h.run_backward_match()
                                     time_h_fin = time.process_time()
                                     self.time_h += (time_h_fin - time_h_ini)
+                                    self.time_r += backward_h.time_r
+
                                     length_2 = len(backward_h.match_final[0].match)
-                                self.time_r += backward_h.time_r
                                 if len(backward.match_final[0].match) > self.template_dag_dep.size()/2:
                                     self.difference.append(length_1-length_2)
                                 #print(node_id_c,node_id_t, list_qubit_circuit)

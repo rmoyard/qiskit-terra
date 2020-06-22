@@ -335,7 +335,7 @@ class BackwardMatch:
             length (int): depth for cutting the tree, cutting operation is repeated every length.
             survivor (int): number of survivor branches.
         """
-        time_r_ini = time.process_time()
+
         # Set the list of the counter for the different scenarios.
         list_counter = []
 
@@ -356,8 +356,6 @@ class BackwardMatch:
                 self.matching_list.matching_scenarios_list \
                     = [i for j, i in enumerate(self.matching_list.matching_scenarios_list)
                        if j in largest]
-        time_r_fin = time.process_time()
-        self.time_r += time_r_fin - time_r_ini
 
     def _backward_metrics(self, scenario):
         """
@@ -415,14 +413,13 @@ class BackwardMatch:
         while self.matching_list.matching_scenarios_list:
 
             # If parameters are given, the heuristics is applied.
-            time_h_ini = time.process_time()
-
-            if heuristics and length >= self.template_dag_dep.size()/4:
+            time_r_ini = time.process_time()
+            if heuristics and length > self.template_dag_dep.size()/4:
                 self._backward_heuristics(gate_indices,
                                           self.heuristics_backward_param[0],
                                           self.heuristics_backward_param[1])
-            time_h_fin = time.process_time()
-            self.time_h += time_h_fin - time_h_ini
+            time_r_fin = time.process_time()
+            self.time_r += time_r_fin - time_r_ini
 
             scenario = self.matching_list.pop_scenario()
 
