@@ -382,7 +382,7 @@ class BackwardMatch:
 
         while self.matching_list.matching_scenarios_list:
 
-            self._backward_heuristics(gate_indices,4,1)
+            #self._backward_heuristics(gate_indices,4,1)
 
             scenario = self.matching_list.pop_scenario()
 
@@ -563,7 +563,7 @@ class BackwardMatch:
                                                               self.node_counter)
                     self.matching_list.append_scenario(new_matching_scenario)
 
-                if broken_matches and broken_matches_match:
+                if broken_matches:
 
                     circuit_matched_block_p = circuit_matched.copy()
                     circuit_blocked_block_p = circuit_blocked.copy()

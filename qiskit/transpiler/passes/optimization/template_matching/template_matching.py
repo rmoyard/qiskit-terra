@@ -59,6 +59,7 @@ class TemplateMatching:
         self.circuit_dag = DAGDependency()
         self.template_dag = DAGDependency()
         self.match_list = []
+        self.histo=[]
 
     def _list_first_match(self, qarg_c, qarg_t, carg_c, carg_t, n_qubits_t, n_clbits_t):
         """
@@ -250,6 +251,7 @@ class TemplateMatching:
                                     backward.run_backward_match()
 
                                     print(len(backward.tree))
+                                    self.histo.append(len(backward.tree))
                                     total += len(backward.tree)
                                     self._add_match(backward.match_final)
         print(total)
