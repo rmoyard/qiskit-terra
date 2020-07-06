@@ -593,7 +593,7 @@ class BackwardMatch:
 
                 # Third option: if blocking the succesors breaks a match, we consider
                 # also the possibility to block all predecessors (push the gate to the left).
-                if broken_matches:
+                if broken_matches and broken_matches_match:
 
                     circuit_matched_block_p = circuit_matched.copy()
                     circuit_blocked_block_p = circuit_blocked.copy()
