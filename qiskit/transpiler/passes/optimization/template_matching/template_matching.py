@@ -168,11 +168,12 @@ class TemplateMatching:
             successors = self.circuit_dag_dep.get_node(node_id_c).successors
             for succ in successors:
                 qarg = self.circuit_dag_dep.get_node(succ).qindices
-                if (len(qubit_set | set(qarg))) <= n_qubits_t and counter <= length:
+                if counter <= length:
+                    #(len(qubit_set | set(qarg))) <= n_qubits_t and
                     qubit_set = qubit_set | set(qarg)
                     counter += 1
-                elif (len(qubit_set | set(qarg))) > n_qubits_t:
-                    return list(qubit_set)
+                    # elif (len(qubit_set | set(qarg))) > n_qubits_t:
+                    #   return list(qubit_set)
             return list(qubit_set)
 
         else:
@@ -182,11 +183,12 @@ class TemplateMatching:
 
             for not_succ in candidate:
                 qarg = self.circuit_dag_dep.get_node(not_succ).qindices
-                if (len(qubit_set | set(qarg))) <= n_qubits_t and counter <= length:
+                if counter <= length:
+                    # (len(qubit_set | set(qarg))) <= n_qubits_t and
                     qubit_set = qubit_set | set(qarg)
                     counter += 1
-                elif (len(qubit_set | set(qarg))) > n_qubits_t:
-                    return list(qubit_set)
+                #elif (len(qubit_set | set(qarg))) > n_qubits_t:
+                #   return list(qubit_set)
             return list(qubit_set)
 
     def run_template_matching(self):
