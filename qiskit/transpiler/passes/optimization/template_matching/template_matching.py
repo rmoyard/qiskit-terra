@@ -246,8 +246,12 @@ class TemplateMatching:
                             #print(set(heuristics_qubits).issubset(set(sub_q) | set(qarg_c)))
                             #case.append(set(heuristics_qubits).issubset(set(sub_q) | set(qarg_c)))
                             #print('\n')
+                        if len(heuristics_qubits) >= n_qubits_t:
+                            allowed_conf = (set(sub_q) | set(qarg_c)).issubset(set(heuristics_qubits))
+                        else:
+                            allowed_conf = set(heuristics_qubits).issubset(set(sub_q) | set(qarg_c))
 
-                        if set(heuristics_qubits).issubset(set(sub_q) | set(qarg_c)):
+                        if allowed_conf:
                             # Permute the qubit configuration.
                             for perm_q in itertools.permutations(sub_q):
                                 perm_q = list(perm_q)
