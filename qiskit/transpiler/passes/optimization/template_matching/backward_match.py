@@ -649,6 +649,14 @@ class BackwardMatch:
                     self.matching_list.append_scenario(matching_scenario)
 
                 else:
+                    circuit_matched_nomatch = circuit_matched.copy()
+                    circuit_blocked_nomatch = circuit_blocked.copy()
+
+                    template_matched_nomatch = template_matched.copy()
+                    template_blocked_nomatch = template_blocked.copy()
+
+                    matches_scenario_nomatch = matches_scenario.copy()
+
                     # Second option, all predecessors are blocked (circuit gate is
                     # moved to the left).
                     for pred in predecessors:
@@ -664,13 +672,6 @@ class BackwardMatch:
 
                     # Third option, all succesors are blocked (circuit gate is
                     # moved to the rigth).
-                    circuit_matched_nomatch = circuit_matched.copy()
-                    circuit_blocked_nomatch = circuit_blocked.copy()
-
-                    template_matched_nomatch = template_matched.copy()
-                    template_blocked_nomatch = template_blocked.copy()
-
-                    matches_scenario_nomatch = matches_scenario.copy()
 
                     broken_matches = []
 
@@ -692,7 +693,7 @@ class BackwardMatch:
                             condition_block = False
                             break
 
-                    if ([self.node_id_t, self.node_id_c] in matches_scenario_nomatch) \
+                    if ([self.node_id_t, self.node_id_c] in new_matches_scenario_nomatch) \
                             and (condition_block or not match_backward):
                         new_matching_scenario = MatchingScenarios(circuit_matched_nomatch,
                                                                   circuit_blocked_nomatch,
